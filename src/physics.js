@@ -1,3 +1,4 @@
+import {smoothMotionInput} from './motion-controls.js';
 import {stepVehicle,assistedSteering,motionSteering,resolveVehicleContact,aiSteering,resolveBarrier,initializeVehicle,straightRoad} from './vehicle-dynamics.js';
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const NITRO_MINIMUM=25;
@@ -8,8 +9,9 @@ export function stepRace(s,input,dt,curvature=0,track=null){
  if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;
  const road=track?.project?track:straightRoad;
  initializeVehicle(s,road);
+ s.motionInput=input.motion?smoothMotionInput(s.motionInput??0,input.steer||0,dt):0;
  stepNitro(s,{...input,brake:input.brake||s.forwardSpeed<0},dt);
- stepVehicle(s,{...input,steer:input.motion?motionSteering(s,input.steer,road):assistedSteering(s,input.steer,dt,road),headingGuard:true},dt,road);
+ stepVehicle(s,{...input,steer:input.motion?motionSteering(s,s.motionInput,road):assistedSteering(s,input.steer,dt,road),headingGuard:true},dt,road);
  for(const rival of s.rivals){
    initializeVehicle(rival,road);rival.lane??=rival.lateral;
    const wantsBoost=chooseRivalBoost(rival,s,track);
@@ -75,5 +77,5 @@ export function screenTilt(beta,gamma,angle=0){
  const r=Math.PI/180,a=angle*r;
  return Math.asin(clamp(Math.sin(gamma*r)*Math.cos(beta*r)*Math.cos(a)+Math.sin(beta*r)*Math.sin(a),-1,1))/r;
 }
-export function tiltSteer(value,neutral){const delta=value-neutral;return Math.abs(delta)<2?0:clamp((delta-Math.sign(delta)*2)/22,-1,1);}
+export function tiltSteer(value,neutral){const delta=value-neutral;return Math.abs(delta)<2?0:clamp((delta-Math.sign(delta)*2)/30,-1,1);}
 export function formatTime(seconds){const cents=Math.floor(seconds*100);return `${String(Math.floor(cents/6000)).padStart(2,'0')}:${String(Math.floor(cents/100)%60).padStart(2,'0')}.${String(cents%100).padStart(2,'0')}`;}

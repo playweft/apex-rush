@@ -1,3 +1,4 @@
+import {motionTarget} from './motion-controls.js';
 // World-space arcade vehicle. Assistance only contributes front-wheel input.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
@@ -39,9 +40,9 @@ export function stepVehicle(v,input,dt,track=straightRoad){
  }
  if(offroad&&forward>24)forward=Math.max(24,forward-45*dt);
  let requested=clamp(input.steer||0,-1,1)*steeringLimit(v.speed);
- if(input.headingGuard)requested=guardHeading(v,requested,track);
+ if(input.headingGuard&&!input.motion)requested=guardHeading(v,requested,track);
  // Steering return centres the front wheels, not the vehicle's world heading.
- v.steerAngle+=(requested-v.steerAngle)*(1-Math.exp(-dt*12));
+ v.steerAngle+=(requested-v.steerAngle)*(1-Math.exp(-dt*(input.motion?24:12)));
  let desiredYaw=clamp(-forward*Math.tan(v.steerAngle)/2.6,-2.2,2.2);
  // Low-speed wall contact can remove the motion needed for wheel steering.
  // Gradual yaw recovery keeps auto-throttle from pinning the nose to the rail.
@@ -151,12 +152,11 @@ export function guardHeading(v,wheelAngle,track=straightRoad){
 export function motionSteering(v,tilt,track=straightRoad){
  const input=clamp(tilt||0,-1,1);
  if(v.forwardSpeed<-.1)return input; // Keep manual reverse steering for recovery.
- const maxHeading=(20-8*clamp((v.speed-15)/40,0,1))*Math.PI/180;
- const target=input*maxHeading;
+ const target=motionTarget(input,v.speed,v.lateral);
  const roadSpeed=v.vx*v.road.dir.x+v.vz*v.road.dir.z;
  const roadYawRate=-(track.curvature?.(v.distance)??0)*roadSpeed;
  const error=wrapAngle(v.heading-target);
- const desiredYaw=roadYawRate+error*2.8-(v.yawRate-roadYawRate)*.55;
+ const desiredYaw=roadYawRate+error*4.5-(v.yawRate-roadYawRate)*.65;
  const wheel=-Math.atan(desiredYaw*2.6/Math.max(3,v.forwardSpeed));
  return clamp(wheel/steeringLimit(v.speed),-1,1);
 }

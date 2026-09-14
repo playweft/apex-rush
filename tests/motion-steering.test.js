@@ -2,13 +2,13 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {initializeVehicle,motionSteering,stepVehicle} from '../src/vehicle-dynamics.js';
 import {createRace,stepRace} from '../src/physics.js';
 const car=(extra={})=>{const v={distance:100,lateral:0,speed:15,heading:0,...extra};initializeVehicle(v);return v;};
-const step=(v,tilt)=>stepVehicle(v,{steer:motionSteering(v,tilt),gas:true,cruise:15,headingGuard:true},1/120);
+const step=(v,tilt)=>stepVehicle(v,{steer:motionSteering(v,tilt),gas:true,cruise:15,headingGuard:true,motion:true},1/120);
 test('neutral motion input converges to road heading from both directions',()=>{
  for(const sign of [-1,1]){const v=car({heading:sign*.2});for(let i=0;i<360;i++)step(v,0);assert.ok(Math.abs(v.heading)<.01);assert.ok(Math.abs(v.lateral)<3);}
 });
 test('held tilt settles at a heading instead of continually rotating, then neutral returns',()=>{
  for(const sign of [-1,1]){const v=car();for(let i=0;i<360;i++)step(v,sign*.25);
- assert.ok(Math.abs(v.heading-sign*.25*20*Math.PI/180)<.01);assert.ok(Math.abs(v.yawRate)<.01);
+ assert.ok(Math.abs(v.heading-sign*(.7*.25+.3*.25**3)*25*Math.PI/180)<.01);assert.ok(Math.abs(v.yawRate)<.01);
  for(let i=0;i<360;i++)step(v,0);assert.ok(Math.abs(v.heading)<.01);}
 });
 test('neutral does not pull a parallel car toward the middle; reverse remains manual',()=>{

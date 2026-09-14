@@ -14,7 +14,7 @@ let race=createRace(world.length),phase='ready',beforePause='racing',count=3,key
 let gyro=false,sensorPending=false,neutral=null,lastTilt=null,sensorDeadline=0,orientation=screen.orientation?.angle??window.orientation??0;
 const motionStatus=text=>$('motion-status').textContent=text;
 function setGyro(enabled){gyro=enabled;document.body.classList.toggle('motion-on',enabled);$('motion').setAttribute('aria-pressed',String(enabled));$('motion').textContent=enabled?'关闭重力转向':'启用重力转向';$('calibrate').hidden=!enabled;$('recenter').hidden=!enabled;if(!enabled){neutral=null;smoothedSteer=0;}}
-function calibrate(){if(lastTilt===null){motionStatus('等待方向数据，请轻轻倾斜手机后再回正。');return;}neutral=lastTilt;smoothedSteer=0;motionStatus('已回正 · 自动油门');}
+function calibrate(){if(lastTilt===null){motionStatus('等待方向数据，请轻轻倾斜手机后再回正。');return;}neutral=lastTilt;race.motionInput=0;smoothedSteer=0;motionStatus('已回正 · 自动油门');}
 $('calibrate').onclick=calibrate;$('recenter').onclick=calibrate;
 $('motion').onclick=async()=>{
  if(gyro||sensorPending){sensorPending=false;setGyro(false);motionStatus('已切换为手动驾驶');return;}
@@ -30,10 +30,10 @@ window.addEventListener('deviceorientation',event=>{
  if(nextOrientation!==orientation){orientation=nextOrientation;neutral=null;smoothedSteer=0;world.resetHorizon();if(phase==='racing'||phase==='countdown')pause();}
  const value=screenTilt(event.beta,event.gamma,orientation);if(value===null)return;
  lastTilt=value;
- if(neutral===null){neutral=value;setGyro(true);sensorPending=false;motionStatus('重力转向已开启 · 自动油门');}
+ if(neutral===null){neutral=value;race.motionInput=0;setGyro(true);sensorPending=false;motionStatus('重力转向已开启 · 自动油门');}
 });
 const mapping={ArrowUp:'gas',KeyW:'gas',ArrowDown:'brake',KeyS:'brake',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',Space:'boost'};
-function clearInput(){keys={};document.querySelectorAll('.touch .active').forEach(b=>b.classList.remove('active'));smoothedSteer=0;}
+function clearInput(){keys={};race.motionInput=0;document.querySelectorAll('.touch .active').forEach(b=>b.classList.remove('active'));smoothedSteer=0;}
 window.addEventListener('keydown',event=>{
  if(event.code==='Escape'&&!event.repeat){event.preventDefault();pause();return;}
  if(!$('overlay').hidden){
@@ -116,7 +116,7 @@ function tick(now){const dt=clamp((now-last)/1000,0,.05);last=now;
  if(sensorPending&&!document.hidden&&now>sensorDeadline){sensorPending=false;setGyro(false);motionStatus('未收到传感器数据。请在手机浏览器直接打开，或使用触控。');}
  if(phase==='countdown'){count-=dt;$('countdown').textContent=count>0?Math.ceil(count):'GO';if(count<=-.6){setPhase('racing');$('countdown').textContent='';}}
  const tilt=gyro&&lastTilt!==null&&neutral!==null?tiltSteer(lastTilt,neutral):0;
- const desired=keys.left?-1:keys.right?1:tilt;smoothedSteer+=(desired-smoothedSteer)*(1-Math.exp(-dt*10));
+ const desired=keys.left?-1:keys.right?1:tilt;smoothedSteer=gyro?desired:smoothedSteer+(desired-smoothedSteer)*(1-Math.exp(-dt*10));
  if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,motion:gyro,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance),world);accumulator-=1/120;if(race.finished){finish();break;}}}
  updateHUD();world.draw(race,dt,phase==='ready'||phase==='finished',smoothedSteer,horizonRollTarget(lastTilt,neutral,gyro&&(phase==='racing'||phase==='countdown')));requestAnimationFrame(tick);
 }
