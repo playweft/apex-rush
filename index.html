@@ -1,1 +1,56 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0c181f"><meta name="description" content="极速山脊：与五名电脑车手展开三圈街机竞速。支持键盘和手机触控。"><link rel="icon" href="./icon.svg"><title>极速山脊 · Apex Rush</title></head><body><main id="game"><canvas id="track" aria-label="赛车赛道：用方向键或下方触控按钮驾驶"></canvas><header><a class="brand" href="./"><span class="mark">A</span><span>APEX<span class="thin"> RUSH</span><small>极速山脊</small></span></a><div class="race-label">01 <span>／</span> COASTLINE CIRCUIT<small>海岸山脊 · 晴</small></div><div class="header-actions"><button id="recenter" class="recenter" hidden>回正</button><button id="pause" class="icon-button" aria-label="暂停游戏" disabled>Ⅱ</button></div></header><section class="hud" aria-label="比赛数据"><div><span class="label">POSITION / 名次</span><strong><b id="position">6</b><em> / 6</em></strong></div><div><span class="label">LAP / 圈数</span><strong><b id="lap">1</b><em> / 3</em></strong></div><div><span class="label">RACE TIME / 用时</span><strong class="timer" id="time">00:00.00</strong></div></section><div id="corner-hint" hidden></div><div id="notice" role="status" aria-live="polite"></div><section id="overlay" class="overlay"><div class="start-card"><div class="eyebrow">COASTLINE GRAND PRIX</div><h1>追上风。<br><span>拿下每个弯。</span></h1><p id="intro">一条海岸公路，五位对手，三圈决胜。<br>弯前松油，出弯释放氮气。</p><div class="race-facts"><span>03 <small>圈数</small></span><span>06 <small>车手</small></span><span>☀ <small>干燥路面</small></span></div><button class="primary" id="start">开始比赛 <span>↗</span></button><div class="motion-settings"><button id="motion" type="button">启用重力转向</button><button id="calibrate" type="button" hidden>回正校准</button><span id="motion-status" role="status">手机倾斜转向 · 启用后自动油门</span></div><p class="hint">↑ 加速 · ↓ 刹车 · ← → 转向 · 空格 氮气</p></div></section><div id="countdown" aria-live="assertive"></div><div class="bottom"><div class="course"><span class="label">CIRCUIT PROGRESS</span><div class="progress"><i id="progress"></i></div><span id="lapHint">三圈竞速 · 单人挑战</span></div><div class="driving"><div class="nitro"><span class="label">NITRO <span>起用 25%</span></span><div><i id="nitro"></i></div></div><div class="speed"><b id="speed">000</b><span>KM/H</span></div></div></div><nav class="touch" aria-label="驾驶控制"><div><button data-key="left" aria-label="左转">◀</button><button data-key="right" aria-label="右转">▶</button></div><div><button data-key="boost" class="boost">氮气</button><button data-key="brake">刹车</button><button data-key="gas" class="gas">油门</button></div></nav><footer><span>保持线路。把握时机。</span><span>WASD / 方向键 <i>驾驶</i>　 SPACE <i>氮气</i>　 ESC <i>暂停</i></span></footer></main><script type="module" src="/src/main.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0c181f">
+  <meta name="description" content="极速山脊：与五名电脑车手展开三圈街机竞速。支持键盘和手机重力转向。">
+  <link rel="icon" href="./icon.svg">
+  <title>极速山脊 · Apex Rush</title>
+</head>
+<body data-phase="ready">
+<main id="game">
+  <canvas id="track" aria-label="3D 赛车赛道"></canvas>
+  <div id="race-ui" inert>
+    <button id="pause" class="pause-button" aria-label="暂停比赛" title="暂停 · Esc" disabled><span aria-hidden="true">Ⅱ</span></button>
+    <section class="hud" aria-label="比赛数据">
+      <div><span class="label">名次</span><strong><b id="position">6</b><em>/6</em></strong></div>
+      <div><span class="label">圈数</span><strong><b id="lap">1</b><em>/3</em></strong></div>
+      <div class="race-clock"><span class="label">用时</span><strong id="time">00:00.00</strong></div>
+    </section>
+    <button id="recenter" class="recenter" hidden>回正</button>
+    <div class="race-message"><div id="notice" role="status" aria-live="polite"></div><div id="corner-hint" hidden></div></div>
+    <div class="driving">
+      <div class="nitro"><div class="label"><span id="nitro-label">氮气</span><span class="nitro-key">空格</span></div><div class="nitro-meter" role="meter" aria-label="氮气储量，至少 25% 可用" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><i id="nitro"></i></div></div>
+      <div class="speed"><b id="speed">0</b><span>km/h</span></div>
+    </div>
+    <nav class="touch" aria-label="驾驶控制">
+      <div class="steering-controls"><button data-key="left" aria-label="左转">◀</button><button data-key="right" aria-label="右转">▶</button></div>
+      <div class="pedals"><button data-key="brake">刹车</button><button data-key="gas" class="gas">油门</button><button data-key="boost" class="boost">氮气</button></div>
+    </nav>
+  </div>
+  <div id="countdown" aria-live="assertive"></div>
+  <section id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+    <div class="menu-card">
+      <div class="brand"><img src="./icon.svg" width="28" height="28" alt=""><span>APEX RUSH</span></div>
+      <h1 id="menu-title">极速山脊</h1>
+      <p id="intro">海岸环线 · 3 圈 · 6 位车手</p>
+      <dl id="results" class="results" hidden><div><dt>名次</dt><dd id="result-position"></dd></div><div><dt>用时</dt><dd id="result-time"></dd></div></dl>
+      <button class="primary" id="start">开始比赛 <span aria-hidden="true">↗</span></button>
+      <div class="motion-settings">
+        <div class="motion-buttons"><button id="motion" type="button" aria-pressed="false">启用重力转向</button><button id="calibrate" type="button" hidden>回正</button></div>
+        <p id="motion-status" role="status">倾斜转向，自动油门</p>
+      </div>
+      <details id="instructions"><summary>操作说明</summary><div class="instructions-body">
+        <p class="keyboard-help">方向键 / WASD 驾驶，空格氮气，Esc 暂停。</p>
+        <p class="touch-help">按住油门与方向键驾驶；重力模式下倾斜转向，自动油门。</p>
+        <p>氮气至少蓄到 25% 可用，点按也会消耗一格。弯前刹车，出弯加速。</p>
+        <a href="./help.html" target="_blank" rel="noopener">完整指南 ↗</a>
+      </div></details>
+      <p id="asset-status" class="asset-status" role="status" hidden></p>
+    </div>
+  </section>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
