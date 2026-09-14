@@ -1,4 +1,4 @@
-// World-space arcade vehicle. The road NEVER supplies player steering or yaw.
+// World-space arcade vehicle. Assistance only contributes front-wheel input.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 export const steeringLimit=speed=>Math.min(.55,Math.atan(28*2.6/(speed*speed+35)));
@@ -104,4 +104,19 @@ export function aiSteering(v,track,lane=0){
  const error=wrapAngle(Math.atan2(dx,dz)-v.yaw);
  const angle=-Math.atan2(2*2.6*Math.sin(error),Math.max(3,Math.hypot(dx,dz)));
  return clamp(angle/steeringLimit(v.speed),-1,1);
+}
+
+// Small heading correction, never a position correction or a centre-line target.
+export function assistedSteering(v,raw,dt,track=straightRoad){
+ const manual=clamp(raw||0,-1,1);
+ const eligible=v.forwardSpeed>5&&v.collision<=0&&Math.abs(v.heading)<.7&&Math.abs(v.lateral)<7.5;
+ if(!eligible){v.assistWeight=0;return manual;}
+ const intent=clamp(1-Math.abs(manual)/.65,0,1);
+ const targetWeight=intent*intent;
+ // Yield immediately to input; rebuild assistance gently after release.
+ v.assistWeight=Math.min(targetWeight,(v.assistWeight??0)+(targetWeight-(v.assistWeight??0))*(1-Math.exp(-dt/ .45)));
+ const ahead=track.frame(v.distance+clamp(v.speed*.22,3,14),v.lateral).dir;
+ const error=wrapAngle(Math.atan2(ahead.x,ahead.z)-v.yaw);
+ const correction=clamp(-error*.9*2.6/(Math.max(8,v.speed)*steeringLimit(v.speed)),-.32,.32);
+ return clamp(manual+correction*v.assistWeight,-1,1);
 }
