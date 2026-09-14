@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {createTrack} from './track.js';
+import {smoothHorizonRoll} from './camera-motion.js';
 export function createWorld(canvas){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
  renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;
@@ -47,11 +48,11 @@ export function createWorld(canvas){
    });
    for(let i=0;i<16;i++){const model=models[3].scene.clone(true),f=frame(50+i*4,i%2?-9.4:9.4);model.scale.setScalar(1.7);model.position.copy(f.p);scene.add(model);}
  });
- const chase=new THREE.Vector3(),target=new THREE.Vector3();let initialized=false;
+ const chase=new THREE.Vector3(),target=new THREE.Vector3();let initialized=false,horizonRoll=0;
  function place(object,d,lateral,steer=0){const f=frame(d,lateral);object.group.position.copy(f.p);object.group.position.y+=.08;object.group.rotation.set(0,Math.atan2(f.dir.x,f.dir.z)-steer*.08,steer*.035);return f;}
- function draw(state,dt,idle=false,steer=0){const f=place(player,state.distance,state.lateral,steer);player.flame.visible=state.boosting;state.rivals.forEach((r,i)=>place(rivals[i],r.distance,r.lateral));
+ function draw(state,dt,idle=false,steer=0,rollTarget=0){const f=place(player,state.distance,state.lateral,steer);player.flame.visible=state.boosting;state.rivals.forEach((r,i)=>place(rivals[i],r.distance,r.lateral));
  if(idle){chase.copy(f.p).addScaledVector(f.dir,-13).addScaledVector(f.right,9);chase.y+=6;target.copy(f.p).addScaledVector(f.dir,12);target.y+=1;}else{chase.copy(f.p).addScaledVector(f.dir,-11.5-state.speed*.025);chase.y+=5.6;target.copy(f.p).addScaledVector(f.dir,18+state.speed*.1);target.y+=1.6;}
- const k=initialized?1-Math.exp(-dt*7):1;camera.position.lerp(chase,k);camera.lookAt(target);camera.fov=THREE.MathUtils.lerp(camera.fov,state.boosting?70:60,Math.min(1,dt*3));camera.updateProjectionMatrix();initialized=true;renderer.render(scene,camera);}
+ const k=initialized?1-Math.exp(-dt*7):1;camera.position.lerp(chase,k);camera.lookAt(target);horizonRoll=smoothHorizonRoll(horizonRoll,rollTarget,dt);camera.rotateZ(horizonRoll);camera.fov=THREE.MathUtils.lerp(camera.fov,state.boosting?70:60,Math.min(1,dt*3));camera.updateProjectionMatrix();initialized=true;renderer.render(scene,camera);}
  function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}resize();window.addEventListener('resize',resize);
- return {...track,draw,assetsReady,renderer};
+ return {...track,draw,assetsReady,renderer,resetHorizon(){horizonRoll=0;}};
 }

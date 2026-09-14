@@ -1,4 +1,5 @@
 import './style.css';
+import {horizonRollTarget} from './camera-motion.js';
 import {createWorld} from './world.js';
 import {createRace,stepRace,position,formatTime,screenTilt,tiltSteer,clamp} from './physics.js';
 import {createPlayweftSoloClient} from './playweft-solo-client.js';
@@ -26,7 +27,7 @@ $('motion').onclick=async()=>{
 };
 window.addEventListener('deviceorientation',event=>{
  if(!gyro&&!sensorPending)return;const nextOrientation=screen.orientation?.angle??window.orientation??0;
- if(nextOrientation!==orientation){orientation=nextOrientation;neutral=null;smoothedSteer=0;}
+ if(nextOrientation!==orientation){orientation=nextOrientation;neutral=null;smoothedSteer=0;world.resetHorizon();if(phase==='racing'||phase==='countdown')pause();}
  const value=screenTilt(event.beta,event.gamma,orientation);if(value===null)return;
  lastTilt=value;lastSensor=performance.now();
  if(neutral===null){neutral=value;setGyro(true);sensorPending=false;motionStatus('重力转向已开启 · 自动油门 · 可随时回正');}
@@ -65,7 +66,7 @@ function tick(now){const dt=clamp((now-last)/1000,0,.05);last=now;
  const tilt=gyro&&lastTilt!==null?tiltSteer(lastTilt,neutral):0;
  const desired=keys.left?-1:keys.right?1:tilt;smoothedSteer+=(desired-smoothedSteer)*(1-Math.exp(-dt*10));
  if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance),world);accumulator-=1/120;if(race.finished){finish();break;}}}
- updateHUD();world.draw(race,dt,phase==='ready'||phase==='finished',smoothedSteer);requestAnimationFrame(tick);
+ updateHUD();world.draw(race,dt,phase==='ready'||phase==='finished',smoothedSteer,horizonRollTarget(lastTilt,neutral,gyro&&(phase==='racing'||phase==='countdown')));requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);
 window.addEventListener('pagehide',()=>platform.destroy(),{once:true});
