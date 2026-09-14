@@ -1,4 +1,4 @@
-import {stepVehicle,assistedSteering,resolveVehicleContact,aiSteering,resolveBarrier,initializeVehicle,straightRoad} from './vehicle-dynamics.js';
+import {stepVehicle,assistedSteering,motionSteering,resolveVehicleContact,aiSteering,resolveBarrier,initializeVehicle,straightRoad} from './vehicle-dynamics.js';
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const NITRO_MINIMUM=25;
 export const NITRO_BURN_RATE=29;
@@ -9,7 +9,7 @@ export function stepRace(s,input,dt,curvature=0,track=null){
  const road=track?.project?track:straightRoad;
  initializeVehicle(s,road);
  stepNitro(s,{...input,brake:input.brake||s.forwardSpeed<0},dt);
- stepVehicle(s,{...input,steer:assistedSteering(s,input.steer,dt,road),headingGuard:true},dt,road);
+ stepVehicle(s,{...input,steer:input.motion?motionSteering(s,input.steer,road):assistedSteering(s,input.steer,dt,road),headingGuard:true},dt,road);
  for(const rival of s.rivals){
    initializeVehicle(rival,road);rival.lane??=rival.lateral;
    const wantsBoost=chooseRivalBoost(rival,s,track);

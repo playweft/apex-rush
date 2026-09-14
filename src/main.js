@@ -117,7 +117,7 @@ function tick(now){const dt=clamp((now-last)/1000,0,.05);last=now;
  if(phase==='countdown'){count-=dt;$('countdown').textContent=count>0?Math.ceil(count):'GO';if(count<=-.6){setPhase('racing');$('countdown').textContent='';}}
  const tilt=gyro&&lastTilt!==null&&neutral!==null?tiltSteer(lastTilt,neutral):0;
  const desired=keys.left?-1:keys.right?1:tilt;smoothedSteer+=(desired-smoothedSteer)*(1-Math.exp(-dt*10));
- if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance),world);accumulator-=1/120;if(race.finished){finish();break;}}}
+ if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,motion:gyro,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance),world);accumulator-=1/120;if(race.finished){finish();break;}}}
  updateHUD();world.draw(race,dt,phase==='ready'||phase==='finished',smoothedSteer,horizonRollTarget(lastTilt,neutral,gyro&&(phase==='racing'||phase==='countdown')));requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

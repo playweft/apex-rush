@@ -146,3 +146,17 @@ export function guardHeading(v,wheelAngle,track=straightRoad){
  const maxWheel=steeringLimit(v.speed);
  return clamp(-Math.atan(safeYaw*2.6/v.forwardSpeed),-maxWheel,maxWheel);
 }
+
+// Motion input specifies a road-relative heading, not a sustained wheel angle.
+export function motionSteering(v,tilt,track=straightRoad){
+ const input=clamp(tilt||0,-1,1);
+ if(v.forwardSpeed<-.1)return input; // Keep manual reverse steering for recovery.
+ const maxHeading=(20-8*clamp((v.speed-15)/40,0,1))*Math.PI/180;
+ const target=input*maxHeading;
+ const roadSpeed=v.vx*v.road.dir.x+v.vz*v.road.dir.z;
+ const roadYawRate=-(track.curvature?.(v.distance)??0)*roadSpeed;
+ const error=wrapAngle(v.heading-target);
+ const desiredYaw=roadYawRate+error*2.8-(v.yawRate-roadYawRate)*.55;
+ const wheel=-Math.atan(desiredYaw*2.6/Math.max(3,v.forwardSpeed));
+ return clamp(wheel/steeringLimit(v.speed),-1,1);
+}
