@@ -1,0 +1,7 @@
+/playweft.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-cache
+
+/featured-games.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: no-cache

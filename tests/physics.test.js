@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {createRace,stepRace,position,screenTilt,tiltSteer,formatTime} from '../src/physics.js';
+test('acceleration, braking and offroad penalty',()=>{const s=createRace(1800);s.rivals=[];for(let i=0;i<600;i++)stepRace(s,{gas:true},1/60);assert.ok(s.speed>58&&s.speed<60);const before=s.speed;stepRace(s,{brake:true},.05);assert.ok(s.speed<before);s.lateral=10;for(let i=0;i<120;i++)stepRace(s,{gas:true},1/60);assert.ok(s.speed<=24);});
+test('boost consumes fuel and fuel regenerates',()=>{const s=createRace(1800);s.rivals=[];s.speed=59;for(let i=0;i<120;i++)stepRace(s,{gas:true,boost:true},1/60);assert.ok(s.speed>59);assert.ok(s.nitro<50);const n=s.nitro;stepRace(s,{gas:true},.05);assert.ok(s.nitro>n);});
+test('collision has a grace period',()=>{const s=createRace(1800);s.speed=50;s.rivals=[{distance:2,speed:50,pace:50,lateral:0,finishTime:null}];stepRace(s,{gas:true},.01);assert.ok(s.speed<35);const v=s.speed;stepRace(s,{gas:true},.01);assert.ok(s.speed>v);});
+test('three laps finish and freeze state',()=>{const s=createRace(100);s.rivals=[];for(let i=0;i<3000&&!s.finished;i++)stepRace(s,{gas:true},1/60);assert.equal(s.distance,300);assert.equal(s.finished,true);assert.equal(position(s),1);const t=s.time;stepRace(s,{gas:true},.05);assert.equal(s.time,t);});
+test('finished rivals ranked by finishing time',()=>{const s=createRace(100);s.finished=true;s.time=10;s.rivals=[{finishTime:9},{finishTime:null},{finishTime:11}];assert.equal(position(s),2);});
+test('tilt handles portrait, landscape, calibration and deadzone',()=>{assert.ok(screenTilt(0,25,0)>24);assert.ok(screenTilt(25,0,90)>24);assert.ok(screenTilt(25,0,270)<-24);assert.equal(screenTilt(null,10),null);assert.equal(tiltSteer(15,15),0);assert.equal(tiltSteer(16,15),0);assert.equal(tiltSteer(45,15),1);assert.equal(tiltSteer(-15,15),-1);});
+test('timer formatting',()=>{assert.equal(formatTime(61.239),'01:01.23');});
