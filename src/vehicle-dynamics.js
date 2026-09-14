@@ -42,7 +42,13 @@ export function stepVehicle(v,input,dt,track=straightRoad){
  if(input.headingGuard)requested=guardHeading(v,requested,track);
  // Steering return centres the front wheels, not the vehicle's world heading.
  v.steerAngle+=(requested-v.steerAngle)*(1-Math.exp(-dt*12));
- const desiredYaw=clamp(-forward*Math.tan(v.steerAngle)/2.6,-2.2,2.2);
+ let desiredYaw=clamp(-forward*Math.tan(v.steerAngle)/2.6,-2.2,2.2);
+ // Low-speed wall contact can remove the motion needed for wheel steering.
+ // Gradual yaw recovery keeps auto-throttle from pinning the nose to the rail.
+ if(input.headingGuard&&input.gas&&!input.brake&&forward>=-.5&&v.speed<8&&Math.abs(v.lateral)>8&&Math.abs(v.heading)<2.6){
+   const target=-Math.sign(v.lateral)*.07;
+   desiredYaw=clamp((v.heading-target)*2,-.8,.8);
+ }
  v.yawRate+=(desiredYaw-v.yawRate)*(1-Math.exp(-dt*9));
  const grip=offroad?12:30;
  side+=clamp(-side*12,-grip,grip)*dt;
@@ -67,7 +73,7 @@ export function resolveBarrier(v,track=straightRoad){
   v.vx=tx*tangentSpeed*friction-nx*normalSpeed*.12;
   v.vz=tz*tangentSpeed*friction-nz*normalSpeed*.12;
   // Dampen spin from impact; do not align the car with the road.
-  v.yawRate*=.4;
+  if(v.yawRate*sign<0)v.yawRate*=.4;
   if(normalSpeed>1){v.collision=.8;v.impact=Math.max(v.impact,normalSpeed);}
  }
  updateRoadPosition(v,track);
@@ -123,16 +129,20 @@ export function assistedSteering(v,raw,dt,track=straightRoad){
 }
 
 // Predict yaw overshoot and progressively constrain wheel input, including after
-// wall contact. No teleport, yaw clamp, extra grip or centre-line attraction.
+// wall contact. No teleport, hard yaw clamp, extra grip or centre-line attraction.
 export function guardHeading(v,wheelAngle,track=straightRoad){
- if(v.forwardSpeed<=5||Math.abs(v.heading)>Math.PI*.45)return wheelAngle;
- const limit=(38-16*clamp((v.speed-15)/40,0,1))*Math.PI/180;
+ if(v.forwardSpeed<=.1||Math.abs(v.heading)>2.6)return wheelAngle;
+ const limit=(24-10*clamp((v.speed-15)/40,0,1))*Math.PI/180;
+ const wall=clamp((Math.abs(v.lateral)-6.5)/2,0,1);
+ // Taper the outward envelope into a gentle inward angle near either rail.
+ const outward=limit*(1-wall)-.07*wall;
+ const lower=v.lateral<0?-outward:-limit,upper=v.lateral>0?outward:limit;
  const roadSpeed=v.vx*v.road.dir.x+v.vz*v.road.dir.z;
  const roadYawRate=-(track.curvature?.(v.distance)??0)*roadSpeed;
  const predicted=v.heading+(roadYawRate-v.yawRate)*.18;
  const requestedYaw=-v.forwardSpeed*Math.tan(wheelAngle)/2.6;
  // The closer to the allowed angle, the less outward yaw remains available.
- const safeYaw=clamp(requestedYaw,roadYawRate+(predicted-limit)*3,roadYawRate+(predicted+limit)*3);
+ const safeYaw=clamp(requestedYaw,roadYawRate+(predicted-upper)*4,roadYawRate+(predicted-lower)*4);
  const maxWheel=steeringLimit(v.speed);
  return clamp(-Math.atan(safeYaw*2.6/v.forwardSpeed),-maxWheel,maxWheel);
 }
