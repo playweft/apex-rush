@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id);
 $('game').addEventListener('contextmenu',event=>event.preventDefault());
 let world;
 try{world=createWorld($('track'));}catch(error){$('intro').textContent='无法启动 3D 画面。请使用支持 WebGL 的浏览器，并开启硬件加速后重新打开。';$('start').disabled=true;throw error;}
-world.assetsReady.catch(()=>{$('notice').textContent='车辆素材加载失败，已使用简化车型，可正常比赛。';});
+world.assetsReady.catch(()=>{$('notice').textContent='部分场景素材加载失败，可继续比赛或刷新重试。';});
 const platform=createPlayweftSoloClient();
 let race=createRace(world.length),phase='ready',beforePause='racing',count=3,keys={},last=performance.now(),accumulator=0,smoothedSteer=0,lap=1;
 let gyro=false,sensorPending=false,neutral=null,lastTilt=null,lastSensor=0,sensorDeadline=0,orientation=screen.orientation?.angle??window.orientation??0;

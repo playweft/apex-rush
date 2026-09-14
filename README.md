@@ -30,3 +30,7 @@ Kenney Car Kit 3.1（CC0），使用 race、race-future、sedan-sports、cone �
 ## 赛道 1.1
 
 约 2.6 km，包含长直道、两个发卡弯、连续 S 弯、高速长弯和回程减速弯。弯前有 100/50 米牌及名称/距离提示。电脑提前读取 150 米内的曲率，以制动距离规划过弯速度。赛道、速度规划和道路间距有自动测试；移动端操作手感仍需真机试玩。
+
+## 场景画面
+
+Kenney Nature Kit（CC0，https://kenney.nl/assets/nature-kit）提供五个自然模型，共约 92 KB，保留原授权 public/models/nature/License.txt。通过 InstancedMesh 复用枝叶与岩石网格，固定随机种子生成疏密不同的树丛，并避开赛道。地形包含贴合赛道的坡面与海岸过渡，天空渐变、距离雾和局部 1024px 阴影增加层次。模型加载和实际地形网格的道路净空已自动验证；移动端帧率和最终视觉效果仍需实机验证。
