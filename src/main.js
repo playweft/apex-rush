@@ -50,6 +50,9 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&(phase==='
 $('track').addEventListener('webglcontextlost',event=>{event.preventDefault();pause();$('intro').textContent='3D 画面暂时中断，请重新加载页面。';$('start').textContent='重新加载';$('start').onclick=()=>location.reload();});
 function finish(){phase='finished';$('pause').disabled=true;$('countdown').textContent='';const place=position(race);showOverlay(place===1?'漂亮的冠军。<br><span>再快一点？</span>':`第 ${place} 名冲线。<br><span>下次，抢占先机。</span>`,`完赛用时 ${formatTime(race.time)}。${place===1?'你击败了全部五位对手。':'弯前减速，保持在路面上，利用氮气完成超越。'}`,'再跑一场');}
 function updateHUD(){const currentLap=Math.min(3,Math.floor(race.distance/race.length)+1);if(currentLap>lap&&!race.finished){lap=currentLap;$('notice').textContent=lap===3?'最后一圈！':'第 2 圈 · 保持节奏';setTimeout(()=>{if(!race.finished)$('notice').textContent='';},2000);}
+ const corner=world.upcoming(race.distance);
+ $('corner-hint').hidden=phase!=='racing'||corner.ahead>150;
+ $('corner-hint').textContent=`${corner.name} · ${Math.ceil(corner.ahead/10)*10} m${race.speed>world.targetSpeed(race.distance)+3?' · 提前刹车':''}`;
  $('position').textContent=position(race);$('lap').textContent=currentLap;$('time').textContent=formatTime(race.time);$('speed').textContent=String(Math.round(race.speed*3.6)).padStart(3,'0');$('nitro').style.width=race.nitro+'%';$('progress').style.width=(race.distance/race.length/3*100)+'%';
  if(phase==='racing'&&Math.abs(race.lateral)>7.5)$('notice').textContent='驶回路面 · 路肩会降低速度';else if($('notice').textContent.startsWith('驶回'))$('notice').textContent='';
 }
@@ -59,7 +62,7 @@ function tick(now){const dt=clamp((now-last)/1000,0,.05);last=now;
  if(phase==='countdown'){count-=dt;$('countdown').textContent=count>0?Math.ceil(count):'GO';if(count<=-.6){phase='racing';$('countdown').textContent='';}}
  const tilt=gyro&&lastTilt!==null?tiltSteer(lastTilt,neutral):0;
  const desired=keys.left?-1:keys.right?1:tilt;smoothedSteer+=(desired-smoothedSteer)*(1-Math.exp(-dt*10));
- if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance));accumulator-=1/120;if(race.finished){finish();break;}}}
+ if(phase==='racing'){accumulator+=dt;while(accumulator>=1/120){stepRace(race,{steer:smoothedSteer,gas:keys.gas||gyro,brake:keys.brake,boost:keys.boost},1/120,world.curvature(race.distance),world);accumulator-=1/120;if(race.finished){finish();break;}}}
  updateHUD();world.draw(race,dt,phase==='ready'||phase==='finished',smoothedSteer);requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

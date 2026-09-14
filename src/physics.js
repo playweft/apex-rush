@@ -1,7 +1,7 @@
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const mod=(n,m)=>(n%m+m)%m;
 export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,finishTime:null}))};}
-export function stepRace(s,input,dt,curvature=0){
+export function stepRace(s,input,dt,curvature=0,track=null){
  if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;s.collision=Math.max(0,s.collision-dt);
  const steer=clamp(input.steer||0,-1,1);s.boosting=!!input.boost&&s.nitro>0&&s.speed>8&&!input.brake;
  s.nitro=clamp(s.nitro+(s.boosting?-29:9)*dt,0,100);
@@ -13,7 +13,8 @@ export function stepRace(s,input,dt,curvature=0){
  s.lateral=clamp(s.lateral,-12,12);
  s.distance+=s.speed*dt;
  for(const rival of s.rivals){
-   rival.speed=Math.min(rival.pace,rival.speed+18*dt);
+   const target=track?track.targetSpeed(rival.distance,rival.pace):rival.pace;
+   rival.speed=rival.speed>target?Math.max(target,rival.speed-30*dt):Math.min(target,rival.speed+18*dt);
    rival.distance+=rival.speed*dt;
    if(rival.distance>=s.length*3&&rival.finishTime===null)rival.finishTime=s.time;
    const delta=mod(rival.distance-s.distance+s.length/2,s.length)-s.length/2;

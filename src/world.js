@@ -1,21 +1,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import {mod} from './physics.js';
+import {createTrack} from './track.js';
 export function createWorld(canvas){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
  renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;
  const scene=new THREE.Scene();scene.background=new THREE.Color('#aacdd2');scene.fog=new THREE.Fog('#aacdd2',160,700);
  scene.add(new THREE.HemisphereLight(0xd9f3ff,0x65735a,2.7));const sun=new THREE.DirectionalLight(0xffe3b1,3);sun.position.set(-140,220,60);scene.add(sun);
  const camera=new THREE.PerspectiveCamera(60,1,.1,1300);
- const curve=new THREE.CatmullRomCurve3([[-190,5,-180],[-60,9,-260],[120,17,-230],[220,11,-90],[150,6,30],[240,13,170],[60,25,255],[-125,13,220],[-245,5,100],[-170,7,-20]].map(p=>new THREE.Vector3(...p)),true,'catmullrom',.45);curve.arcLengthDivisions=2400;curve.updateArcLengths();const length=curve.getLength();
- function frame(distance,lateral=0){const t=mod(distance,length)/length,p=curve.getPointAt(t),dir=curve.getTangentAt(t).normalize(),right=new THREE.Vector3(-dir.z,0,dir.x).normalize();p.addScaledVector(right,lateral);return {p,dir,right};}
+ const track=createTrack();const {length,frame}=track;
  const mat=(color)=>new THREE.MeshStandardMaterial({color,roughness:.86});
  function ribbon(left,right,y,material,segments=1400,filter=()=>true){const positions=[],indices=[];for(let i=0;i<segments;i++){if(!filter(i))continue;const a=frame(i/segments*length),b=frame((i+1)/segments*length);const n=positions.length/3;for(const [f,offset]of[[a,left],[a,right],[b,left],[b,right]]){positions.push(f.p.x+f.right.x*offset,f.p.y+y,f.p.z+f.right.z*offset);}indices.push(n,n+1,n+2,n+1,n+3,n+2);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();const mesh=new THREE.Mesh(g,material);scene.add(mesh);return mesh;}
- ribbon(-18,18,-.22,mat('#898974'));ribbon(-8,8,0,mat('#35434a'));ribbon(-8.8,-8,.02,mat('#ede5c9'));ribbon(8,8.8,.02,mat('#ede5c9'));
+ ribbon(-10,10,-.22,mat('#898974'));ribbon(-8,8,0,mat('#35434a'));ribbon(-8.8,-8,.02,mat('#ede5c9'));ribbon(8,8.8,.02,mat('#ede5c9'));
  ribbon(-8.8,-8,.04,mat('#df674e'),1400,i=>Math.floor(i/4)%2===0);ribbon(8,8.8,.04,mat('#df674e'),1400,i=>Math.floor(i/4)%2===0);
  for(const lane of [-2.67,2.67])ribbon(lane-.07,lane+.07,.025,mat('#e8e8d1'),1400,i=>i%12<5);
  const sea=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),mat('#438b94'));sea.rotation.x=-Math.PI/2;sea.position.y=-6;scene.add(sea);
- const land=new THREE.Mesh(new THREE.CylinderGeometry(335,365,15,40),mat('#798876'));land.position.set(0,-3,0);scene.add(land);
+ const land=new THREE.Mesh(new THREE.CylinderGeometry(440,465,15,48),mat('#798876'));land.position.set(0,-3,0);scene.add(land);
  const dummy=new THREE.Object3D();const rails=new THREE.InstancedMesh(new THREE.BoxGeometry(.25,.55,4),mat('#d6e0d5'),Math.ceil(length/5)*2);let ri=0;
  for(let d=0;d<length;d+=5){for(const side of [-10.5,10.5]){const f=frame(d,side);dummy.position.copy(f.p);dummy.position.y+=.55;dummy.rotation.set(0,Math.atan2(f.dir.x,f.dir.z),0);dummy.updateMatrix();rails.setMatrixAt(ri++,dummy.matrix);}}rails.count=ri;scene.add(rails);
  const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.3,.55,4,5),mat('#5e6854'),140),crowns=new THREE.InstancedMesh(new THREE.ConeGeometry(3,10,5),mat('#3d6657'),140);
@@ -29,6 +28,13 @@ export function createWorld(canvas){
  for(const x of [-.96,.96])for(const z of [-1.12,1.12]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.3,10),rubber);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.4,z);group.add(wheel);}
  const red=new THREE.MeshBasicMaterial({color:'#ff594d'});for(const x of [-.63,.63]){box(.45,.14,.04,red,x,.78,-1.87);box(.5,.1,.04,white,x,.72,1.86);}const flame=new THREE.Mesh(new THREE.ConeGeometry(.3,2,8),new THREE.MeshBasicMaterial({color:'#83eaff'}));flame.rotation.x=-Math.PI/2;flame.position.set(0,.5,-2.5);flame.visible=false;group.add(flame);scene.add(group);return {group,flame};}
  const player=car('#d9ff65'),rivals=['#ef734f','#e6d7b9','#719bdc','#ac87cd','#55c4b0'].map(car);
+ for(const corner of track.corners.filter(c=>c.type!=='sweeper'))for(const distance of [100,50]){
+   const canvas=document.createElement('canvas');canvas.width=256;canvas.height=128;
+   const ctx=canvas.getContext('2d');ctx.fillStyle='#10242c';ctx.fillRect(0,0,256,128);ctx.strokeStyle='#d9ff65';ctx.lineWidth=8;ctx.strokeRect(4,4,248,120);ctx.fillStyle='#ffffff';ctx.font='bold 80px sans-serif';ctx.textAlign='center';ctx.fillText(String(distance),128,94);
+   const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+   const board=new THREE.Mesh(new THREE.PlaneGeometry(3.8,1.9),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
+   const f=frame(corner.distance-distance,12);board.position.copy(f.p);board.position.y+=2.8;board.rotation.y=Math.atan2(-f.dir.x,-f.dir.z);scene.add(board);
+ }
  const loader=new GLTFLoader();
  const assetsReady=Promise.all(['race','race-future','sedan-sports','cone'].map(name=>loader.loadAsync(`${import.meta.env.BASE_URL}models/kenney/${name}.glb`))).then(models=>{
    [player,...rivals].forEach((vehicle,i)=>{
@@ -47,5 +53,5 @@ export function createWorld(canvas){
  if(idle){chase.copy(f.p).addScaledVector(f.dir,-13).addScaledVector(f.right,9);chase.y+=6;target.copy(f.p).addScaledVector(f.dir,12);target.y+=1;}else{chase.copy(f.p).addScaledVector(f.dir,-11.5-state.speed*.025);chase.y+=5.6;target.copy(f.p).addScaledVector(f.dir,18+state.speed*.1);target.y+=1.6;}
  const k=initialized?1-Math.exp(-dt*7):1;camera.position.lerp(chase,k);camera.lookAt(target);camera.fov=THREE.MathUtils.lerp(camera.fov,state.boosting?70:60,Math.min(1,dt*3));camera.updateProjectionMatrix();initialized=true;renderer.render(scene,camera);}
  function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}resize();window.addEventListener('resize',resize);
- return {length,draw,assetsReady,curvature(d){const a=frame(d).dir,b=frame(d+5).dir;return Math.atan2(a.x*b.z-a.z*b.x,a.dot(b))/5;},renderer};
+ return {...track,draw,assetsReady,renderer};
 }

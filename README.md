@@ -26,3 +26,7 @@ Playweft 导入游戏根 URL 或 `playweft.json`。本版本支持 solo 模式�
 Kenney Car Kit 3.1（CC0），使用 race、race-future、sedan-sports、cone 四个 GLB。来源 https://kenney.nl/assets/car-kit 。保留原授权 `public/models/kenney/License.txt`。详情见 `public/credits.html`。
 
 赛道和基础景物由 Three.js 生成；赛车按曲线里程与横向偏移驱动，属于街机驾驶模型，不是完整刚体车辆模拟。逻辑使用固定 120Hz 步长。几何与素材复用，像素密度上限 1.6。
+
+## 赛道 1.1
+
+约 2.6 km，包含长直道、两个发卡弯、连续 S 弯、高速长弯和回程减速弯。弯前有 100/50 米牌及名称/距离提示。电脑提前读取 150 米内的曲率，以制动距离规划过弯速度。赛道、速度规划和道路间距有自动测试；移动端操作手感仍需真机试玩。
