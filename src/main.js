@@ -104,7 +104,7 @@ function updateHUD(){
  $('corner-hint').textContent=`${corner.name} · ${Math.ceil(corner.ahead/10)*10} m${braking?' · 刹车':''}`;
  $('corner-hint').classList.toggle('braking',braking);
  $('position').textContent=position(race);$('lap').textContent=currentLap;$('time').textContent=formatTime(race.time);
- $('speed').textContent=Math.round(race.speed*3.6);
+ $('speed').textContent=(race.forwardSpeed<-.5?'−':'')+Math.round(race.speed*3.6);
  $('nitro').style.width=race.nitro+'%';
  const low=race.nitro<NITRO_MINIMUM&&!race.boosting;
  document.querySelector('.nitro').classList.toggle('low',low);

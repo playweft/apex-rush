@@ -1,65 +1,107 @@
-// Assisted track-relative dynamics: forward speed, lateral velocity and yaw.
-// This keeps the arcade controls while giving contact a velocity-based response.
+// World-space arcade vehicle. The road NEVER supplies player steering or yaw.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-export function initializeVehicle(v){
- v.heading??=0;v.lateralVelocity??=0;v.collision??=0;v.impact??=0;v.slip??=0;
-}
-export function stepHandling(v,steer,curvature,dt){
- initializeVehicle(v);v.collision=Math.max(0,v.collision-dt);v.impact*=Math.exp(-dt*8);
- const offroad=Math.abs(v.lateral)>7.5;
- const desired=Math.asin(clamp(steer*(3+v.speed*.105)/Math.max(v.speed,8),-.55,.55));
- v.heading+=(desired-v.heading)*(1-Math.exp(-dt*7));
- const wheelVelocity=Math.sin(v.heading)*v.speed;
- const grip=offroad?10:26;
- const lateralForce=clamp((wheelVelocity-v.lateralVelocity)*6-curvature*v.speed*v.speed,-grip,grip);
- v.lateralVelocity+=lateralForce*dt;
- if(v.speed<2)v.lateralVelocity*=Math.exp(-dt*8);
- v.slip=Math.abs(wheelVelocity-v.lateralVelocity);
- v.lateral+=v.lateralVelocity*dt;
- resolveBarrier(v);
-}
-export function resolveBarrier(v){
- initializeVehicle(v);
- const halfWidth=.95*Math.cos(v.heading)+1.95*Math.abs(Math.sin(v.heading));
- const limit=10.375-halfWidth;
- if(Math.abs(v.lateral)<=limit)return;
- const side=Math.sign(v.lateral),impact=Math.max(0,v.lateralVelocity*side);
- v.lateral=side*limit;
- if(impact<=0)return;
- const incidence=clamp(impact/Math.max(v.speed,1),0,1);
- v.speed=Math.max(0,v.speed-impact*(.25+incidence*.9));
- v.lateralVelocity=-side*impact*.18;
- // Turn gently away from contact instead of trapping the car against the rail.
- v.heading=clamp(v.heading-side*Math.min(.16,impact*.012),-.55,.55);
- v.impact=Math.max(v.impact,impact);if(impact>1)v.collision=.8;
-}
-export function resolveVehicleContact(a,b,length){
- initializeVehicle(a);initializeVehicle(b);
- const dz=((b.distance-a.distance+length/2)%length+length)%length-length/2;
- const dx=b.lateral-a.lateral;
- // Conservative bounds include the extra width of a car turned across the road.
- const width=v=>.95*Math.cos(v.heading)+1.95*Math.abs(Math.sin(v.heading));
- const overlapX=width(a)+width(b)-Math.abs(dx),overlapZ=3.9-Math.abs(dz);
- if(overlapX<=0||overlapZ<=0)return false;
- const lateral=overlapX<overlapZ;
- const sign=Math.sign(lateral?dx:dz)||1;
- const av=lateral?a.lateralVelocity:a.speed,bv=lateral?b.lateralVelocity:b.speed;
- const closing=(av-bv)*sign;
- // Symmetric separation works even when the contact has no relative velocity.
- const correction=(lateral?overlapX:overlapZ)*.5+.001;
- if(lateral){a.lateral-=sign*correction;b.lateral+=sign*correction;}
- else{a.distance-=sign*correction;b.distance+=sign*correction;}
- if(closing>0){
-   const impulse=closing*.56; // equal mass, low restitution
-   if(lateral){a.lateralVelocity-=sign*impulse;b.lateralVelocity+=sign*impulse;
-     const yaw=clamp(sign*impulse*.009,-.12,.12);a.heading=clamp(a.heading-yaw,-.55,.55);b.heading=clamp(b.heading+yaw,-.55,.55);
-   }else{a.speed=Math.max(0,a.speed-sign*impulse);b.speed=Math.max(0,b.speed+sign*impulse);}
-   if(closing>1){a.collision=b.collision=.8;a.impact=Math.max(a.impact,closing);b.impact=Math.max(b.impact,closing);}
+export const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
+export const steeringLimit=speed=>Math.min(.55,Math.atan(28*2.6/(speed*speed+35)));
+export const straightRoad={
+ frame(distance,lateral=0){return {p:{x:-lateral,y:0,z:distance},dir:{x:0,y:0,z:1},right:{x:-1,y:0,z:0}};},
+ project(x,z){return {distance:z,lateral:-x,p:{x:0,y:0,z},dir:{x:0,y:0,z:1},right:{x:-1,y:0,z:0}};},
+};
+export function initializeVehicle(v,track=straightRoad){
+ v.yawRate??=0;v.steerAngle??=0;v.collision??=0;v.impact??=0;v.slip??=0;v.reverseWait??=0;
+ if(v.x===undefined){
+  const f=track.frame(v.distance,v.lateral);v.x=f.p.x;v.z=f.p.z;
+  v.yaw=Math.atan2(f.dir.x,f.dir.z)-(v.heading??0);
+  v.vx=Math.sin(v.yaw)*(v.speed??0);v.vz=Math.cos(v.yaw)*(v.speed??0);
  }
- resolveBarrier(a);resolveBarrier(b);return true;
+ v.yaw??=0;v.vx??=0;v.vz??=0;
+ updateRoadPosition(v,track);
 }
-export function laneSteering(v,curvature,lane=0){
- initializeVehicle(v);
- const desiredVelocity=curvature*v.speed*v.speed/6+(lane-v.lateral)*2-v.lateralVelocity*1.1;
- return clamp(desiredVelocity/(3+v.speed*.105),-1,1);
+export function updateRoadPosition(v,track=straightRoad){
+ const road=track.project(v.x,v.z,v.distance);
+ v.road=road;v.distance=road.distance;v.lateral=road.lateral;
+ v.heading=wrapAngle(Math.atan2(road.dir.x,road.dir.z)-v.yaw);
+ v.lateralVelocity=v.vx*road.right.x+v.vz*road.right.z;
+ v.forwardSpeed=v.vx*Math.sin(v.yaw)+v.vz*Math.cos(v.yaw);
+ v.speed=Math.hypot(v.vx,v.vz);
+}
+export function stepVehicle(v,input,dt,track=straightRoad){
+ initializeVehicle(v,track);v.collision=Math.max(0,v.collision-dt);v.impact*=Math.exp(-dt*8);
+ const fx=Math.sin(v.yaw),fz=Math.cos(v.yaw),rx=-fz,rz=fx;
+ let forward=v.vx*fx+v.vz*fz,side=v.vx*rx+v.vz*rz;
+ const offroad=Math.abs(v.lateral)>7.5,limit=offroad?24:v.boosting?76:(input.cruise??59);
+ if(input.brake){
+  if(forward>.3){forward=Math.max(0,forward-48*dt);v.reverseWait=0;}
+  else{v.reverseWait+=dt;if(v.reverseWait>.4)forward=Math.max(-8,forward-10*dt);}
+ }else{
+  v.reverseWait=0;
+  if(input.gas||v.boosting){forward=forward>limit?Math.max(limit,forward-(offroad?45:14)*dt):Math.min(limit,forward+22*dt);}
+  else forward=Math.sign(forward)*Math.max(0,Math.abs(forward)-10*dt);
+ }
+ if(offroad&&forward>24)forward=Math.max(24,forward-45*dt);
+ const requested=clamp(input.steer||0,-1,1)*steeringLimit(v.speed);
+ // Steering return centres the front wheels, not the vehicle's world heading.
+ v.steerAngle+=(requested-v.steerAngle)*(1-Math.exp(-dt*12));
+ const desiredYaw=clamp(-forward*Math.tan(v.steerAngle)/2.6,-2.2,2.2);
+ v.yawRate+=(desiredYaw-v.yawRate)*(1-Math.exp(-dt*9));
+ const grip=offroad?12:30;
+ side+=clamp(-side*12,-grip,grip)*dt;
+ v.slip=Math.abs(side);
+ v.vx=fx*forward+rx*side;v.vz=fz*forward+rz*side;
+ v.yaw=wrapAngle(v.yaw+v.yawRate*dt);
+ v.x+=v.vx*dt;v.z+=v.vz*dt;
+ updateRoadPosition(v,track);resolveBarrier(v,track);
+}
+export function resolveBarrier(v,track=straightRoad){
+ if(v.x===undefined)initializeVehicle(v,track);
+ updateRoadPosition(v,track);
+ const halfWidth=.95*Math.abs(Math.cos(v.heading))+1.95*Math.abs(Math.sin(v.heading));
+ const penetration=Math.abs(v.lateral)-(10.375-halfWidth);
+ if(penetration<=0)return;
+ const sign=Math.sign(v.lateral),nx=v.road.right.x*sign,nz=v.road.right.z*sign;
+ v.x-=nx*(penetration+.001);v.z-=nz*(penetration+.001);
+ const normalSpeed=v.vx*nx+v.vz*nz;
+ if(normalSpeed>0){
+  const tx=-nz,tz=nx,tangentSpeed=v.vx*tx+v.vz*tz;
+  const friction=1-Math.min(.35,normalSpeed*.015);
+  v.vx=tx*tangentSpeed*friction-nx*normalSpeed*.12;
+  v.vz=tz*tangentSpeed*friction-nz*normalSpeed*.12;
+  // Dampen spin from impact; do not align the car with the road.
+  v.yawRate*=.4;
+  if(normalSpeed>1){v.collision=.8;v.impact=Math.max(v.impact,normalSpeed);}
+ }
+ updateRoadPosition(v,track);
+}
+export function resolveVehicleContact(a,b,track=straightRoad){
+ initializeVehicle(a,track);initializeVehicle(b,track);
+ const dx=b.x-a.x,dz=b.z-a.z;
+ if(dx*dx+dz*dz>20)return false;
+ const axes=v=>[{x:Math.sin(v.yaw),z:Math.cos(v.yaw)},{x:-Math.cos(v.yaw),z:Math.sin(v.yaw)}];
+ const aa=axes(a),bb=axes(b);
+ const extent=(basis,n)=>1.95*Math.abs(basis[0].x*n.x+basis[0].z*n.z)+.95*Math.abs(basis[1].x*n.x+basis[1].z*n.z);
+ let depth=Infinity,normal;
+ for(const axis of [...aa,...bb]){
+  const signed=dx*axis.x+dz*axis.z,overlap=extent(aa,axis)+extent(bb,axis)-Math.abs(signed);
+  if(overlap<=0)return false;
+  if(overlap<depth){depth=overlap;const sign=Math.sign(signed)||1;normal={x:axis.x*sign,z:axis.z*sign};}
+ }
+ const correction=depth*.5+.001;
+ a.x-=normal.x*correction;a.z-=normal.z*correction;b.x+=normal.x*correction;b.z+=normal.z*correction;
+ const closing=(a.vx-b.vx)*normal.x+(a.vz-b.vz)*normal.z;
+ if(closing>0){
+  const impulse=closing*.56;
+  a.vx-=normal.x*impulse;a.vz-=normal.z*impulse;b.vx+=normal.x*impulse;b.vz+=normal.z*impulse;
+  const spin=clamp((dx*normal.z-dz*normal.x)*impulse*.025,-.5,.5);
+  a.yawRate=clamp(a.yawRate+spin,-2.2,2.2);b.yawRate=clamp(b.yawRate-spin,-2.2,2.2);
+  if(closing>1){a.collision=b.collision=.8;a.impact=Math.max(a.impact,closing);b.impact=Math.max(b.impact,closing);}
+ }
+ updateRoadPosition(a,track);updateRoadPosition(b,track);return true;
+}
+export function aiSteering(v,track,lane=0){
+ initializeVehicle(v,track);
+ const lookahead=6+v.speed*.2;
+ const aim=track.frame(v.distance+lookahead,lane).p;
+ const dx=aim.x-v.x,dz=aim.z-v.z;
+ const error=wrapAngle(Math.atan2(dx,dz)-v.yaw);
+ const angle=-Math.atan2(2*2.6*Math.sin(error),Math.max(3,Math.hypot(dx,dz)));
+ return clamp(angle/steeringLimit(v.speed),-1,1);
 }

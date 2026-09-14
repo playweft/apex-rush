@@ -25,6 +25,24 @@ export function createTrack() {
  function curvature(distance){const f=mod(distance,length)/spacing,i=Math.floor(f),u=f-i;return samples[i]*(1-u)+samples[(i+1)%count]*u;}
  function cornerSpeed(distance){return clamp(Math.sqrt(18/Math.max(.0001,Math.abs(curvature(distance)))),18,76);}
  function targetSpeed(distance,cruise=59){let speed=cruise;for(let ahead=0;ahead<=150;ahead+=5){const limit=cornerSpeed(distance+ahead);speed=Math.min(speed,Math.sqrt(limit*limit+2*22*Math.max(0,ahead-12)));}return speed;}
+ // Project physical positions onto nearby segments for road contacts and lap progress.
+ // The unwrapped hint prevents jumping to a neighboring section or skipping a lap.
+ const centerline=Array.from({length:count+1},(_,i)=>curve.getPointAt((i%count)/count));
+ function project(x,z,hint=0){
+   const center=Math.floor(hint/spacing);let best=null;
+   for(let j=center-24;j<=center+24;j++){
+     const i=mod(j,count),a=centerline[i],b=centerline[i+1];
+     const dx=b.x-a.x,dz=b.z-a.z;
+     const u=clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz),0,1);
+     const px=a.x+u*dx,pz=a.z+u*dz,error=(x-px)**2+(z-pz)**2;
+     if(!best||error<best.error){
+       const norm=Math.hypot(dx,dz),right={x:-dz/norm,z:dx/norm};
+       best={distance:(j+u)*spacing,lateral:(x-px)*right.x+(z-pz)*right.z,
+         p:{x:px,y:a.y+(b.y-a.y)*u,z:pz},right,dir:{x:dx/norm,y:(b.y-a.y)/norm,z:dz/norm},error};
+     }
+   }
+   return best;
+ }
  function nearest(point){let best=Infinity,result=0;for(let d=0;d<length;d+=2){const p=frame(d).p;const delta=(p.x-point[0])**2+(p.z-point[1])**2;if(delta<best){best=delta;result=d;}}return result;}
  const corners=[
  {name:'海岬发卡弯',point:[235,-225],type:'hairpin'},
@@ -34,5 +52,5 @@ export function createTrack() {
  {name:'回程减速弯',point:[-40,169],type:'chicane'},
  ].map(c=>({...c,distance:nearest(c.point)}));
  function upcoming(distance){return corners.map(c=>({...c,ahead:mod(c.distance-distance,length)})).sort((a,b)=>a.ahead-b.ahead)[0];}
- return {length,frame,curvature,cornerSpeed,targetSpeed,corners,upcoming};
+ return {length,frame,project,curvature,cornerSpeed,targetSpeed,corners,upcoming};
 }

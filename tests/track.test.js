@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTrack} from '../src/track.js';
 import {createRace,stepRace,clamp} from '../src/physics.js';
-import {laneSteering} from '../src/vehicle-dynamics.js';
+import {aiSteering} from '../src/vehicle-dynamics.js';
 const track=createTrack();
 test('circuit has a seamless start, safe radii and separated road sections',()=>{
  assert.ok(track.frame(0).p.distanceTo(track.frame(track.length).p)<.001);
@@ -24,7 +24,7 @@ test('a braking driver can complete three laps without leaving the road',()=>{
  const s=createRace(track.length);s.rivals=[];let maxOffset=0;
  for(let n=0;n<120*400&&!s.finished;n++){
   const k=track.curvature(s.distance),target=track.targetSpeed(s.distance);
-  const steer=laneSteering(s,k);
+  const steer=aiSteering(s,track);
   stepRace(s,{steer,gas:s.speed<target,brake:s.speed>target+1},1/120,k,track);
   maxOffset=Math.max(maxOffset,Math.abs(s.lateral));
  }

@@ -52,8 +52,21 @@ export function createWorld(canvas){
  });
  const assetsReady=Promise.allSettled([carsReady,natureReady]).then(results=>{if(results.some(r=>r.status==='rejected'))throw new Error('Some visual assets failed to load');});
  const chase=new THREE.Vector3(),target=new THREE.Vector3();let initialized=false,horizonRoll=0;
- function place(object,d,lateral,heading=0){const f=frame(d,lateral);object.group.position.copy(f.p);object.group.position.y+=.08;object.group.rotation.set(0,Math.atan2(f.dir.x,f.dir.z)-heading,heading*.12);return f;}
- function draw(state,dt,idle=false,steer=0,rollTarget=0){const f=place(player,state.distance,state.lateral,state.heading??0);player.flame.visible=state.boosting;state.rivals.forEach((r,i)=>{place(rivals[i],r.distance,r.lateral,r.heading??0);rivals[i].flame.visible=!!r.boosting;});
+ function place(object,vehicle){
+   const f=frame(vehicle.distance,vehicle.lateral);
+   object.group.position.set(vehicle.x??f.p.x,f.p.y+.08,vehicle.z??f.p.z);
+   const yaw=vehicle.yaw??Math.atan2(f.dir.x,f.dir.z);
+   object.group.rotation.order='YXZ';
+   object.group.rotation.set(-Math.atan(f.dir.y)*Math.cos(vehicle.heading??0),yaw,(vehicle.yawRate??0)*.035);
+   return {p:object.group.position,dir:new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)),right:new THREE.Vector3(-Math.cos(yaw),0,Math.sin(yaw))};
+ }
+ let cameraYaw=null;
+ function draw(state,dt,idle=false,steer=0,rollTarget=0){
+   const f=place(player,state);player.flame.visible=state.boosting;
+   state.rivals.forEach((r,i)=>{place(rivals[i],r);rivals[i].flame.visible=!!r.boosting;});
+   const travel=state.speed>8&&state.forwardSpeed>0?Math.atan2(state.vx,state.vz):(state.yaw??Math.atan2(f.dir.x,f.dir.z));
+   cameraYaw??=travel;cameraYaw+=Math.atan2(Math.sin(travel-cameraYaw),Math.cos(travel-cameraYaw))*(1-Math.exp(-dt*4));
+   f.dir.set(Math.sin(cameraYaw),0,Math.cos(cameraYaw));f.right.set(-Math.cos(cameraYaw),0,Math.sin(cameraYaw));
  if(idle){chase.copy(f.p).addScaledVector(f.dir,-13).addScaledVector(f.right,9);chase.y+=6;target.copy(f.p).addScaledVector(f.dir,12);target.y+=1;}else{chase.copy(f.p).addScaledVector(f.dir,-11.5-state.speed*.025);chase.y+=5.6;target.copy(f.p).addScaledVector(f.dir,18+state.speed*.1);target.y+=1.6;}
  const k=initialized?1-Math.exp(-dt*7):1;camera.position.lerp(chase,k);sky.position.copy(camera.position);sun.position.copy(f.p).add(new THREE.Vector3(-100,160,70));sun.target.position.copy(f.p);camera.lookAt(target);horizonRoll=smoothHorizonRoll(horizonRoll,rollTarget,dt);camera.rotateZ(horizonRoll);camera.fov=THREE.MathUtils.lerp(camera.fov,state.boosting?70:60,Math.min(1,dt*3));camera.updateProjectionMatrix();initialized=true;renderer.render(scene,camera);}
  function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}resize();window.addEventListener('resize',resize);
