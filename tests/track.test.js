@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTrack} from '../src/track.js';
 import {createRace,stepRace,clamp} from '../src/physics.js';
+import {laneSteering} from '../src/vehicle-dynamics.js';
 const track=createTrack();
 test('circuit has a seamless start, safe radii and separated road sections',()=>{
  assert.ok(track.frame(0).p.distanceTo(track.frame(track.length).p)<.001);
@@ -23,12 +24,12 @@ test('a braking driver can complete three laps without leaving the road',()=>{
  const s=createRace(track.length);s.rivals=[];let maxOffset=0;
  for(let n=0;n<120*400&&!s.finished;n++){
   const k=track.curvature(s.distance),target=track.targetSpeed(s.distance);
-  const steer=clamp((k*s.speed*s.speed*.2-s.lateral*3)/(3+s.speed*.105),-1,1);
+  const steer=laneSteering(s,k);
   stepRace(s,{steer,gas:s.speed<target,brake:s.speed>target+1},1/120,k,track);
   maxOffset=Math.max(maxOffset,Math.abs(s.lateral));
  }
  assert.ok(s.finished);assert.ok(maxOffset<7.5);assert.ok(s.time<400);
 });
 test('full throttle requires more than maximum steering at tight corners',()=>{
- let exceeded=false;for(let d=0;d<track.length;d+=2)if(Math.abs(track.curvature(d))*59*59*.2>3+59*.105)exceeded=true;assert.ok(exceeded);
+ let exceeded=false;for(let d=0;d<track.length;d+=2)if(Math.abs(track.curvature(d))*59*59>26)exceeded=true;assert.ok(exceeded);
 });

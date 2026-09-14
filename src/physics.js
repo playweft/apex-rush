@@ -1,10 +1,11 @@
+import {stepHandling,resolveVehicleContact,laneSteering,resolveBarrier} from './vehicle-dynamics.js';
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const NITRO_MINIMUM=25;
 export const NITRO_BURN_RATE=29;
 export const mod=(n,m)=>(n%m+m)%m;
 export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,nitroRemaining:0,boostInterrupted:false,boostHeld:false,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,finishTime:null}))};}
 export function stepRace(s,input,dt,curvature=0,track=null){
- if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;s.collision=Math.max(0,s.collision-dt);
+ if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;
  const steer=clamp(input.steer||0,-1,1);
  const pressed=!!input.boost&&!s.boostHeld;
  s.boostHeld=!!input.boost;
@@ -26,17 +27,21 @@ export function stepRace(s,input,dt,curvature=0,track=null){
  const max=offroad?24:s.boosting?76:59;
  const acceleration=input.brake?-48:input.gas||s.boosting?22:-10;
  if(acceleration>0){s.speed=s.speed>max?Math.max(max,s.speed-(offroad?45:14)*dt):Math.min(max,s.speed+acceleration*dt);}else{s.speed=Math.max(0,s.speed+acceleration*dt);if(s.speed>max)s.speed=Math.max(max,s.speed-(offroad?45:14)*dt);}
- s.lateral+=steer*(3.0+s.speed*.105)*dt-curvature*s.speed*s.speed*.20*dt;
- s.lateral=clamp(s.lateral,-12,12);
+ stepHandling(s,steer,curvature,dt);
  s.distance+=s.speed*dt;
  for(const rival of s.rivals){
-   const target=track?track.targetSpeed(rival.distance,rival.pace):rival.pace;
+   const cruise=Math.abs(rival.lateral)>7.5?24:rival.pace;
+   const target=track?track.targetSpeed(rival.distance,cruise):cruise;
    rival.speed=rival.speed>target?Math.max(target,rival.speed-30*dt):Math.min(target,rival.speed+18*dt);
+   rival.lane??=rival.lateral;
+   const bend=track?track.curvature(rival.distance):0;
+   stepHandling(rival,laneSteering(rival,bend,rival.lane),bend,dt);
    rival.distance+=rival.speed*dt;
-   if(rival.distance>=s.length*3&&rival.finishTime===null)rival.finishTime=s.time;
-   const delta=mod(rival.distance-s.distance+s.length/2,s.length)-s.length/2;
-   if(Math.abs(delta)<4.1&&Math.abs(rival.lateral-s.lateral)<1.9&&s.collision===0){s.speed*=.63;s.lateral=clamp(s.lateral+(s.lateral>=rival.lateral?1:-1)*1.4,-12,12);s.collision=.9;}
  }
+ const vehicles=[s,...s.rivals];
+ for(let pass=0;pass<2;pass++)for(let i=0;i<vehicles.length;i++)for(let j=i+1;j<vehicles.length;j++)resolveVehicleContact(vehicles[i],vehicles[j],s.length);
+ for(const vehicle of vehicles)resolveBarrier(vehicle);
+ for(const rival of s.rivals)if(rival.distance>=s.length*3&&rival.finishTime===null)rival.finishTime=s.time;
  if(s.distance>=s.length*3){s.distance=s.length*3;s.finished=true;s.boosting=false;s.nitroRemaining=0;}
 }
 export function position(s){return 1+s.rivals.filter(r=>s.finished?r.finishTime!==null&&r.finishTime<=s.time:r.distance>s.distance).length;}

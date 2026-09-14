@@ -93,11 +93,11 @@ function finish(){
  showOverlay(place===1?'冠军！':'比赛完成','','再跑一场');
 }
 function updateHUD(){
- const currentLap=Math.min(3,Math.floor(race.distance/race.length)+1);
+ const currentLap=Math.max(1,Math.min(3,Math.floor(race.distance/race.length)+1));
  if(currentLap>lap&&!race.finished){lap=currentLap;lapNoticeUntil=race.time+2;}
  const corner=world.upcoming(race.distance);
  const active=phase==='racing';
- const notice=!active?'':Math.abs(race.lateral)>7.5?'驶回路面':race.collision>.4?'发生碰撞':race.time<lapNoticeUntil?(lap===3?'最后一圈':'第 2 圈'):'';
+ const notice=!active?'':race.collision>.4?'发生碰撞':Math.abs(race.lateral)>7.5?'驶回路面':race.time<lapNoticeUntil?(lap===3?'最后一圈':'第 2 圈'):'';
  if($('notice').textContent!==notice)$('notice').textContent=notice;
  $('corner-hint').hidden=!active||!!notice||corner.ahead>150;
  const braking=race.speed>world.targetSpeed(race.distance)+3;
