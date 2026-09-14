@@ -9,7 +9,7 @@ export function stepRace(s,input,dt,curvature=0,track=null){
  const road=track?.project?track:straightRoad;
  initializeVehicle(s,road);
  stepNitro(s,{...input,brake:input.brake||s.forwardSpeed<0},dt);
- stepVehicle(s,{...input,steer:assistedSteering(s,input.steer,dt,road)},dt,road);
+ stepVehicle(s,{...input,steer:assistedSteering(s,input.steer,dt,road),headingGuard:true},dt,road);
  for(const rival of s.rivals){
    initializeVehicle(rival,road);rival.lane??=rival.lateral;
    const wantsBoost=chooseRivalBoost(rival,s,track);

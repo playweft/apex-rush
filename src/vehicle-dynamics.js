@@ -38,7 +38,8 @@ export function stepVehicle(v,input,dt,track=straightRoad){
   else forward=Math.sign(forward)*Math.max(0,Math.abs(forward)-10*dt);
  }
  if(offroad&&forward>24)forward=Math.max(24,forward-45*dt);
- const requested=clamp(input.steer||0,-1,1)*steeringLimit(v.speed);
+ let requested=clamp(input.steer||0,-1,1)*steeringLimit(v.speed);
+ if(input.headingGuard)requested=guardHeading(v,requested,track);
  // Steering return centres the front wheels, not the vehicle's world heading.
  v.steerAngle+=(requested-v.steerAngle)*(1-Math.exp(-dt*12));
  const desiredYaw=clamp(-forward*Math.tan(v.steerAngle)/2.6,-2.2,2.2);
@@ -119,4 +120,19 @@ export function assistedSteering(v,raw,dt,track=straightRoad){
  const error=wrapAngle(Math.atan2(ahead.x,ahead.z)-v.yaw);
  const correction=clamp(-error*.9*2.6/(Math.max(8,v.speed)*steeringLimit(v.speed)),-.32,.32);
  return clamp(manual+correction*v.assistWeight,-1,1);
+}
+
+// Predict yaw overshoot and progressively constrain wheel input, including after
+// wall contact. No teleport, yaw clamp, extra grip or centre-line attraction.
+export function guardHeading(v,wheelAngle,track=straightRoad){
+ if(v.forwardSpeed<=5||Math.abs(v.heading)>Math.PI*.45)return wheelAngle;
+ const limit=(38-16*clamp((v.speed-15)/40,0,1))*Math.PI/180;
+ const roadSpeed=v.vx*v.road.dir.x+v.vz*v.road.dir.z;
+ const roadYawRate=-(track.curvature?.(v.distance)??0)*roadSpeed;
+ const predicted=v.heading+(roadYawRate-v.yawRate)*.18;
+ const requestedYaw=-v.forwardSpeed*Math.tan(wheelAngle)/2.6;
+ // The closer to the allowed angle, the less outward yaw remains available.
+ const safeYaw=clamp(requestedYaw,roadYawRate+(predicted-limit)*3,roadYawRate+(predicted+limit)*3);
+ const maxWheel=steeringLimit(v.speed);
+ return clamp(-Math.atan(safeYaw*2.6/v.forwardSpeed),-maxWheel,maxWheel);
 }
