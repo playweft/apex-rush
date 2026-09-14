@@ -5,3 +5,13 @@
 .header-actions{display:flex;gap:10px;align-items:center}.recenter{background:#10252dbb;color:#d9ff65;border:1px solid #d9ff6580;padding:9px 13px;border-radius:22px;font-size:14px}.motion-settings{margin-top:16px;display:flex;flex-wrap:wrap;gap:9px}.motion-settings button{border:1px solid #c7e5de66;background:#172f3b;color:#d9ff65;padding:9px 12px;font-size:14px}.motion-settings span{flex-basis:100%;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:#c7d5dc}.motion-settings [hidden],.header-actions [hidden]{display:none}@media(max-height:760px){.race-facts{margin:15px 0;padding-top:12px}h1{margin-bottom:15px}.eyebrow{margin-bottom:14px}.motion-settings{margin-top:10px}.start-card p{margin:10px 0}.overlay{padding-top:95px;padding-bottom:75px}}@media(max-height:540px) and (orientation:landscape){#game{min-height:360px}.start-card{max-width:570px}h1{font-size:30px;display:inline}.start-card h1 br{display:none}.eyebrow{font-size:12px;margin-bottom:8px}.race-facts{display:none}.start-card>p{font-size:12px}.primary{padding:10px 18px;max-width:370px}.motion-settings{max-width:500px}.motion-settings span{flex-basis:auto}.overlay{padding-top:90px;padding-bottom:25px}.hint{display:none}.hud{top:85px}.bottom{bottom:95px}.course{display:none}}
 
 #corner-hint{position:absolute;top:205px;left:38px;background:#10242cd9;border-left:3px solid #d9ff65;padding:10px 14px;font:14px/1.5 sans-serif;color:#e7ffb1}#corner-hint[hidden]{display:none}@media(max-width:700px),(pointer:coarse){#corner-hint{left:20px;top:173px;font-size:13px}}
+
+/* Holding a driving control must not select HUD text or open iOS callouts. */
+#game, #game * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hud, .bottom, #notice, #corner-hint, #countdown {
+  pointer-events: none;
+}

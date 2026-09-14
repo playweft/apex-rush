@@ -3,6 +3,8 @@ import {createWorld} from './world.js';
 import {createRace,stepRace,position,formatTime,screenTilt,tiltSteer,clamp} from './physics.js';
 import {createPlayweftSoloClient} from './playweft-solo-client.js';
 const $=id=>document.getElementById(id);
+// Keep long presses on the play surface from opening a browser menu.
+$('game').addEventListener('contextmenu',event=>event.preventDefault());
 let world;
 try{world=createWorld($('track'));}catch(error){$('intro').textContent='无法启动 3D 画面。请使用支持 WebGL 的浏览器，并开启硬件加速后重新打开。';$('start').disabled=true;throw error;}
 world.assetsReady.catch(()=>{$('notice').textContent='车辆素材加载失败，已使用简化车型，可正常比赛。';});
