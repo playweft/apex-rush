@@ -3,10 +3,41 @@ export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const NITRO_MINIMUM=25;
 export const NITRO_BURN_RATE=29;
 export const mod=(n,m)=>(n%m+m)%m;
-export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,nitroRemaining:0,boostInterrupted:false,boostHeld:false,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,finishTime:null}))};}
+export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,nitroRemaining:0,boostInterrupted:false,boostHeld:false,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,nitro:100,nitroRemaining:0,boostInterrupted:false,boostHeld:false,boosting:false,aiStyle:i,nextBoostAt:2+i*.65,boostUntil:0,finishTime:null}))};}
 export function stepRace(s,input,dt,curvature=0,track=null){
  if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;
  const steer=clamp(input.steer||0,-1,1);
+ stepNitro(s,input,dt);
+ const offroad=Math.abs(s.lateral)>7.5;
+ const max=offroad?24:s.boosting?76:59;
+ const acceleration=input.brake?-48:input.gas||s.boosting?22:-10;
+ if(acceleration>0){s.speed=s.speed>max?Math.max(max,s.speed-(offroad?45:14)*dt):Math.min(max,s.speed+acceleration*dt);}else{s.speed=Math.max(0,s.speed+acceleration*dt);if(s.speed>max)s.speed=Math.max(max,s.speed-(offroad?45:14)*dt);}
+ stepHandling(s,steer,curvature,dt);
+ s.distance+=s.speed*dt;
+ for(const rival of s.rivals){
+   const wantsBoost=chooseRivalBoost(rival,s,track);
+   const offroad=Math.abs(rival.lateral)>7.5;
+   const committed=rival.boosting||rival.nitroRemaining>0;
+   const cruise=offroad?24:wantsBoost||committed?76:rival.pace;
+   const target=track?track.targetSpeed(rival.distance,cruise):cruise;
+   const brake=rival.speed>target+1;
+   stepNitro(rival,{boost:wantsBoost,brake},dt);
+   const limit=Math.min(target,offroad?24:rival.boosting?76:rival.pace);
+   rival.speed=rival.speed>limit?Math.max(limit,rival.speed-(brake?48:14)*dt):Math.min(limit,rival.speed+(rival.boosting?22:18)*dt);
+   rival.lane??=rival.lateral;
+   const bend=track?track.curvature(rival.distance):0;
+   stepHandling(rival,laneSteering(rival,bend,rival.lane),bend,dt);
+   rival.distance+=rival.speed*dt;
+ }
+ const vehicles=[s,...s.rivals];
+ for(let pass=0;pass<2;pass++)for(let i=0;i<vehicles.length;i++)for(let j=i+1;j<vehicles.length;j++)resolveVehicleContact(vehicles[i],vehicles[j],s.length);
+ for(const vehicle of vehicles)resolveBarrier(vehicle);
+ for(const rival of s.rivals)if(rival.distance>=s.length*3&&rival.finishTime===null)rival.finishTime=s.time;
+ if(s.distance>=s.length*3){s.distance=s.length*3;s.finished=true;s.boosting=false;s.nitroRemaining=0;}
+}
+// Player and AI use the same minimum burn, recharge and activation latch.
+export function stepNitro(s,input,dt){
+ s.nitro??=100;s.nitroRemaining??=0;s.boostHeld??=false;s.boostInterrupted??=false;
  const pressed=!!input.boost&&!s.boostHeld;
  s.boostHeld=!!input.boost;
  const canDriveBoost=s.speed>8&&!input.brake;
@@ -23,26 +54,27 @@ export function stepRace(s,input,dt,curvature=0,track=null){
    s.nitro=Math.max(0,s.nitro-burn);
    s.nitroRemaining=Math.max(0,s.nitroRemaining-burn);
  }else{s.nitro=clamp(s.nitro+9*dt,0,100);}
- const offroad=Math.abs(s.lateral)>7.5;
- const max=offroad?24:s.boosting?76:59;
- const acceleration=input.brake?-48:input.gas||s.boosting?22:-10;
- if(acceleration>0){s.speed=s.speed>max?Math.max(max,s.speed-(offroad?45:14)*dt):Math.min(max,s.speed+acceleration*dt);}else{s.speed=Math.max(0,s.speed+acceleration*dt);if(s.speed>max)s.speed=Math.max(max,s.speed-(offroad?45:14)*dt);}
- stepHandling(s,steer,curvature,dt);
- s.distance+=s.speed*dt;
- for(const rival of s.rivals){
-   const cruise=Math.abs(rival.lateral)>7.5?24:rival.pace;
-   const target=track?track.targetSpeed(rival.distance,cruise):cruise;
-   rival.speed=rival.speed>target?Math.max(target,rival.speed-30*dt):Math.min(target,rival.speed+18*dt);
-   rival.lane??=rival.lateral;
-   const bend=track?track.curvature(rival.distance):0;
-   stepHandling(rival,laneSteering(rival,bend,rival.lane),bend,dt);
-   rival.distance+=rival.speed*dt;
- }
- const vehicles=[s,...s.rivals];
- for(let pass=0;pass<2;pass++)for(let i=0;i<vehicles.length;i++)for(let j=i+1;j<vehicles.length;j++)resolveVehicleContact(vehicles[i],vehicles[j],s.length);
- for(const vehicle of vehicles)resolveBarrier(vehicle);
- for(const rival of s.rivals)if(rival.distance>=s.length*3&&rival.finishTime===null)rival.finishTime=s.time;
- if(s.distance>=s.length*3){s.distance=s.length*3;s.finished=true;s.boosting=false;s.nitroRemaining=0;}
+}
+export function chooseRivalBoost(rival,race,track){
+ const style=rival.aiStyle??0;
+ if(!track||rival.finishTime!=null||rival.speed<30||Math.abs(rival.lateral)>6||rival.collision>0||Math.abs(rival.heading??0)>.2||Math.abs(rival.lateralVelocity??0)>3)return false;
+ // Reserve enough straight road for both the minimum burst and braking.
+ if(track.targetSpeed(rival.distance,76)<65||track.targetSpeed(rival.distance+70,76)<60)return false;
+ const traffic=[race,...race.rivals].filter(other=>other!==rival);
+ const blocked=traffic.some(other=>{
+   const ahead=mod(other.distance-rival.distance,race.length);
+   return ahead>0&&ahead<12+Math.max(0,rival.speed-other.speed)*1.2&&Math.abs(other.lateral-rival.lateral)<2.5;
+ });
+ if(blocked)return false;
+ if(race.time<(rival.boostUntil??0))return true;
+ if(rival.boostHeld||rival.boosting||rival.nitroRemaining>0||race.time<(rival.nextBoostAt??0))return false;
+ const chasing=traffic.some(other=>other.distance>rival.distance&&other.distance-rival.distance<140);
+ const reserve=chasing?NITRO_MINIMUM+style*3:60+style*5;
+ if(rival.nitro<reserve)return false;
+ const duration=.9+style*.14;
+ rival.boostUntil=race.time+duration;
+ rival.nextBoostAt=race.time+duration+3.5+style*.6;
+ return true;
 }
 export function position(s){return 1+s.rivals.filter(r=>s.finished?r.finishTime!==null&&r.finishTime<=s.time:r.distance>s.distance).length;}
 export function screenTilt(beta,gamma,angle=0){

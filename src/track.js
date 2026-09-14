@@ -23,7 +23,7 @@ export function createTrack() {
  const count=Math.ceil(length/2),spacing=length/count;
  const samples=Array.from({length:count},(_,i)=>rawCurvature(i*spacing));
  function curvature(distance){const f=mod(distance,length)/spacing,i=Math.floor(f),u=f-i;return samples[i]*(1-u)+samples[(i+1)%count]*u;}
- function cornerSpeed(distance){return clamp(Math.sqrt(18/Math.max(.0001,Math.abs(curvature(distance)))),18,59);}
+ function cornerSpeed(distance){return clamp(Math.sqrt(18/Math.max(.0001,Math.abs(curvature(distance)))),18,76);}
  function targetSpeed(distance,cruise=59){let speed=cruise;for(let ahead=0;ahead<=150;ahead+=5){const limit=cornerSpeed(distance+ahead);speed=Math.min(speed,Math.sqrt(limit*limit+2*22*Math.max(0,ahead-12)));}return speed;}
  function nearest(point){let best=Infinity,result=0;for(let d=0;d<length;d+=2){const p=frame(d).p;const delta=(p.x-point[0])**2+(p.z-point[1])**2;if(delta<best){best=delta;result=d;}}return result;}
  const corners=[
