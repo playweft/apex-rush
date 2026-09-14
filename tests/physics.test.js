@@ -7,3 +7,32 @@ test('three laps finish and freeze state',()=>{const s=createRace(100);s.rivals=
 test('finished rivals ranked by finishing time',()=>{const s=createRace(100);s.finished=true;s.time=10;s.rivals=[{finishTime:9},{finishTime:null},{finishTime:11}];assert.equal(position(s),2);});
 test('tilt handles portrait, landscape, calibration and deadzone',()=>{assert.ok(screenTilt(0,25,0)>24);assert.ok(screenTilt(25,0,90)>24);assert.ok(screenTilt(25,0,270)<-24);assert.equal(screenTilt(null,10),null);assert.equal(tiltSteer(15,15),0);assert.equal(tiltSteer(16,15),0);assert.equal(tiltSteer(45,15),1);assert.equal(tiltSteer(-15,15),-1);});
 test('timer formatting',()=>{assert.equal(formatTime(61.239),'01:01.23');});
+
+test('short taps consume progressively and complete the minimum burst',()=>{
+ const s=createRace(1800);s.rivals=[];s.speed=59;
+ stepRace(s,{boost:true},1/120);assert.ok(s.nitro>99&&s.nitro<100);
+ for(let i=0;i<100;i++)stepRace(s,{boost:false,gas:true},1/120);
+ assert.ok(s.boosting);assert.ok(s.nitro>75&&s.nitro<76);assert.ok(s.speed>59);
+ for(let i=0;i<6;i++)stepRace(s,{boost:false,gas:true},1/120);
+ assert.equal(s.boosting,false);assert.ok(s.nitro>=75);
+});
+test('insufficient tank cannot start even on repeated presses',()=>{
+ const s=createRace(1800);s.rivals=[];s.speed=59;s.nitro=10;
+ for(let i=0;i<60;i++){stepRace(s,{boost:i%2===0,gas:true},1/120);assert.equal(s.boosting,false);}
+ s.nitro=25;s.boostHeld=false;stepRace(s,{boost:true},1/120);assert.ok(s.boosting);assert.ok(s.nitro>24&&s.nitro<25);
+});
+test('braking stops thrust but drains the committed minimum over time',()=>{
+ const s=createRace(1800);s.rivals=[];s.speed=59;
+ stepRace(s,{boost:true},1/120);stepRace(s,{boost:true,brake:true},1/120);
+ assert.equal(s.boosting,false);assert.ok(s.nitroRemaining>24);assert.ok(s.nitro>99);
+ for(let i=0;i<102;i++){stepRace(s,{boost:true,gas:true},1/120);assert.equal(s.boosting,false);}
+ assert.equal(s.nitroRemaining,0);assert.ok(Math.abs(s.nitro-75)<1e-8);
+ stepRace(s,{boost:true,gas:true},1/120);assert.equal(s.boosting,false);
+});
+test('empty tank cannot pulse boost while the button stays held',()=>{
+ const s=createRace(1800);s.rivals=[];s.speed=59;s.nitro=25;
+ for(let i=0;i<130;i++)stepRace(s,{boost:true,gas:true},1/120);
+ assert.equal(s.boosting,false);
+ for(let i=0;i<600;i++){stepRace(s,{boost:true,gas:true},1/120);assert.equal(s.boosting,false);}
+ stepRace(s,{boost:false,gas:true},1/120);stepRace(s,{boost:true,gas:true},1/120);assert.ok(s.boosting);
+});

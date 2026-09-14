@@ -1,10 +1,27 @@
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+export const NITRO_MINIMUM=25;
+export const NITRO_BURN_RATE=29;
 export const mod=(n,m)=>(n%m+m)%m;
-export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,finishTime:null}))};}
+export function createRace(length){return {length,distance:0,speed:0,lateral:0,nitro:100,nitroRemaining:0,boostInterrupted:false,boostHeld:false,time:0,collision:0,finished:false,boosting:false,rivals:Array.from({length:5},(_,i)=>({distance:13+i*9,speed:0,lateral:(i%3-1)*3.2,pace:43.4+i*.8,finishTime:null}))};}
 export function stepRace(s,input,dt,curvature=0,track=null){
  if(s.finished)return;dt=clamp(dt,0,.05);s.time+=dt;s.collision=Math.max(0,s.collision-dt);
- const steer=clamp(input.steer||0,-1,1);s.boosting=!!input.boost&&s.nitro>0&&s.speed>8&&!input.brake;
- s.nitro=clamp(s.nitro+(s.boosting?-29:9)*dt,0,100);
+ const steer=clamp(input.steer||0,-1,1);
+ const pressed=!!input.boost&&!s.boostHeld;
+ s.boostHeld=!!input.boost;
+ const canDriveBoost=s.speed>8&&!input.brake;
+ const continuing=s.boosting&&input.boost;
+ // Commit to a minimum burn, but consume it progressively over time.
+ if(!canDriveBoost)s.boostInterrupted=true;
+ if(canDriveBoost&&pressed&&!s.boosting&&s.nitroRemaining===0&&s.nitro>=NITRO_MINIMUM){
+   s.nitroRemaining=NITRO_MINIMUM;s.boostInterrupted=false;
+ }
+ s.boosting=canDriveBoost&&!s.boostInterrupted&&(s.nitroRemaining>0||(continuing&&s.nitro>0));
+ if(s.boosting||s.nitroRemaining>0){
+   const burn=Math.min(s.nitro,NITRO_BURN_RATE*dt,
+     s.boosting&&input.boost?Infinity:s.nitroRemaining);
+   s.nitro=Math.max(0,s.nitro-burn);
+   s.nitroRemaining=Math.max(0,s.nitroRemaining-burn);
+ }else{s.nitro=clamp(s.nitro+9*dt,0,100);}
  const offroad=Math.abs(s.lateral)>7.5;
  const max=offroad?24:s.boosting?76:59;
  const acceleration=input.brake?-48:input.gas||s.boosting?22:-10;
@@ -20,7 +37,7 @@ export function stepRace(s,input,dt,curvature=0,track=null){
    const delta=mod(rival.distance-s.distance+s.length/2,s.length)-s.length/2;
    if(Math.abs(delta)<4.1&&Math.abs(rival.lateral-s.lateral)<1.9&&s.collision===0){s.speed*=.63;s.lateral=clamp(s.lateral+(s.lateral>=rival.lateral?1:-1)*1.4,-12,12);s.collision=.9;}
  }
- if(s.distance>=s.length*3){s.distance=s.length*3;s.finished=true;s.boosting=false;}
+ if(s.distance>=s.length*3){s.distance=s.length*3;s.finished=true;s.boosting=false;s.nitroRemaining=0;}
 }
 export function position(s){return 1+s.rivals.filter(r=>s.finished?r.finishTime!==null&&r.finishTime<=s.time:r.distance>s.distance).length;}
 export function screenTilt(beta,gamma,angle=0){

@@ -1,7 +1,7 @@
 import './style.css';
 import {horizonRollTarget} from './camera-motion.js';
 import {createWorld} from './world.js';
-import {createRace,stepRace,position,formatTime,screenTilt,tiltSteer,clamp} from './physics.js';
+import {createRace,stepRace,position,formatTime,screenTilt,tiltSteer,clamp,NITRO_MINIMUM} from './physics.js';
 import {createPlayweftSoloClient} from './playweft-solo-client.js';
 const $=id=>document.getElementById(id);
 // Keep long presses on the play surface from opening a browser menu.
@@ -56,7 +56,7 @@ function updateHUD(){const currentLap=Math.min(3,Math.floor(race.distance/race.l
  const corner=world.upcoming(race.distance);
  $('corner-hint').hidden=phase!=='racing'||corner.ahead>150;
  $('corner-hint').textContent=`${corner.name} · ${Math.ceil(corner.ahead/10)*10} m${race.speed>world.targetSpeed(race.distance)+3?' · 提前刹车':''}`;
- $('position').textContent=position(race);$('lap').textContent=currentLap;$('time').textContent=formatTime(race.time);$('speed').textContent=String(Math.round(race.speed*3.6)).padStart(3,'0');$('nitro').style.width=race.nitro+'%';$('progress').style.width=(race.distance/race.length/3*100)+'%';
+ $('position').textContent=position(race);$('lap').textContent=currentLap;$('time').textContent=formatTime(race.time);$('speed').textContent=String(Math.round(race.speed*3.6)).padStart(3,'0');$('nitro').style.width=race.nitro+'%';document.querySelector('.nitro').classList.toggle('low',race.nitro<NITRO_MINIMUM&&!race.boosting);document.querySelector('[data-key=boost]').classList.toggle('unavailable',race.nitro<NITRO_MINIMUM&&!race.boosting);$('progress').style.width=(race.distance/race.length/3*100)+'%';
  if(phase==='racing'&&Math.abs(race.lateral)>7.5)$('notice').textContent='驶回路面 · 路肩会降低速度';else if($('notice').textContent.startsWith('驶回'))$('notice').textContent='';
 }
 function tick(now){const dt=clamp((now-last)/1000,0,.05);last=now;
