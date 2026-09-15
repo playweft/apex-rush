@@ -2,7 +2,7 @@ import {motionTarget} from './motion-controls.js';
 // World-space arcade vehicle. Assistance only contributes front-wheel input.
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
-export const steeringLimit=speed=>Math.min(.55,Math.atan(28*2.6/(speed*speed+35)));
+export const steeringLimit=speed=>Math.min(.55,Math.atan((28+8*Math.exp(-((speed/25)**2)))*2.6/(speed*speed+35)));
 export const straightRoad={
  frame(distance,lateral=0){return {p:{x:-lateral,y:0,z:distance},dir:{x:0,y:0,z:1},right:{x:-1,y:0,z:0}};},
  project(x,z){return {distance:z,lateral:-x,p:{x:0,y:0,z},dir:{x:0,y:0,z:1},right:{x:-1,y:0,z:0}};},
@@ -152,9 +152,12 @@ export function guardHeading(v,wheelAngle,track=straightRoad){
 export function motionSteering(v,tilt,track=straightRoad){
  const input=clamp(tilt||0,-1,1);
  if(v.forwardSpeed<-.1)return input; // Keep manual reverse steering for recovery.
- const target=motionTarget(input,v.speed,v.lateral);
+ const k=track.curvature?.(v.distance)??0;
+ // Leave a small outward heading error for the driver to counter in bends.
+ const bendBias=-clamp(k*4,-.18,.18);
+ const target=motionTarget(input,v.speed,v.lateral,bendBias);
  const roadSpeed=v.vx*v.road.dir.x+v.vz*v.road.dir.z;
- const roadYawRate=-(track.curvature?.(v.distance)??0)*roadSpeed;
+ const roadYawRate=-k*roadSpeed/Math.max(.35,1-k*v.lateral);
  const error=wrapAngle(v.heading-target);
  const desiredYaw=roadYawRate+error*4.5-(v.yawRate-roadYawRate)*.65;
  const wheel=-Math.atan(desiredYaw*2.6/Math.max(3,v.forwardSpeed));

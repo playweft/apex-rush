@@ -23,8 +23,8 @@ export function createTrack() {
  const count=Math.ceil(length/2),spacing=length/count;
  const samples=Array.from({length:count},(_,i)=>rawCurvature(i*spacing));
  function curvature(distance){const f=mod(distance,length)/spacing,i=Math.floor(f),u=f-i;return samples[i]*(1-u)+samples[(i+1)%count]*u;}
- function cornerSpeed(distance){return clamp(Math.sqrt(18/Math.max(.0001,Math.abs(curvature(distance)))),18,76);}
- function targetSpeed(distance,cruise=59){let speed=cruise;for(let ahead=0;ahead<=150;ahead+=5){const limit=cornerSpeed(distance+ahead);speed=Math.min(speed,Math.sqrt(limit*limit+2*22*Math.max(0,ahead-12)));}return speed;}
+ function cornerSpeed(distance,lateral=0){const k=curvature(distance),laneK=k/Math.max(.35,1-k*lateral);return clamp(Math.sqrt(18/Math.max(.0001,Math.abs(laneK))),8,76);}
+ function targetSpeed(distance,cruise=59,lateral=0){let speed=cruise;for(let ahead=0;ahead<=150;ahead+=5){const limit=cornerSpeed(distance+ahead,lateral);speed=Math.min(speed,Math.sqrt(limit*limit+2*22*Math.max(0,ahead-12)));}return speed;}
  // Project physical positions onto nearby segments for road contacts and lap progress.
  // The unwrapped hint prevents jumping to a neighboring section or skipping a lap.
  const centerline=Array.from({length:count+1},(_,i)=>curve.getPointAt((i%count)/count));

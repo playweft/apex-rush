@@ -16,7 +16,7 @@ export function stepRace(s,input,dt,curvature=0,track=null){
    initializeVehicle(rival,road);rival.lane??=rival.lateral;
    const wantsBoost=chooseRivalBoost(rival,s,track);
    const cruise=Math.abs(rival.lateral)>7.5?24:wantsBoost||rival.boosting||rival.nitroRemaining>0?76:rival.pace;
-   let target=track?track.targetSpeed(rival.distance,cruise):cruise;
+   let target=track?track.targetSpeed(rival.distance,cruise,rival.lateral):cruise;
    if(Math.abs(rival.heading)>1)target=Math.min(target,8);
    const brake=rival.speed>target+1;
    stepNitro(rival,{boost:wantsBoost,brake},dt);

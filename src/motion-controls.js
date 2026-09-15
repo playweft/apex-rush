@@ -7,8 +7,8 @@ export function smoothMotionInput(current,target,dt){
  const rate=decisive?24:12;
  return current+(target-current)*(1-Math.exp(-Math.max(0,dt)*rate));
 }
-export function motionTarget(input,speed,lateral){
- const limit=motionHeadingLimit(speed),wanted=motionCurve(input)*limit;
+export function motionTarget(input,speed,lateral,bendBias=0){
+ const limit=motionHeadingLimit(speed),wanted=clamp(motionCurve(input)*limit+bendBias,-limit,limit);
  const wall=clamp((Math.abs(lateral)-7)/1.5,0,1);
  const outward=limit*(1-wall)-.07*wall;
  // Only constrain the dangerous side; leaving a wall keeps full authority.
